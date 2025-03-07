@@ -52,6 +52,167 @@ startCommand:
       };
     }
 
+# Tools configuration
+tools:
+  authenticate:
+    name: authenticate
+    description: Authenticate with Tradovate API
+    schema:
+      type: object
+      properties: {}
+
+  get_accounts:
+    name: get_accounts
+    description: Get all accounts for the authenticated user
+    schema:
+      type: object
+      properties: {}
+
+  get_positions:
+    name: get_positions
+    description: Get current positions
+    schema:
+      type: object
+      properties: {}
+
+  place_order:
+    name: place_order
+    description: Place a new order
+    schema:
+      type: object
+      required:
+        - account_id
+        - contract_id
+        - order_type
+        - quantity
+        - time_in_force
+      properties:
+        account_id:
+          type: number
+          description: Account ID to place the order for
+        contract_id:
+          type: number
+          description: Contract ID to trade
+        order_type:
+          type: string
+          description: Type of order (Market, Limit, etc.)
+        price:
+          type: number
+          description: Order price (required for Limit orders)
+        quantity:
+          type: number
+          description: Number of contracts to trade
+        time_in_force:
+          type: string
+          description: Time in force (Day, GTC, IOC, etc.)
+
+  cancel_order:
+    name: cancel_order
+    description: Cancel an existing order
+    schema:
+      type: object
+      required:
+        - order_id
+      properties:
+        order_id:
+          type: number
+          description: Order ID to cancel
+
+  get_fills:
+    name: get_fills
+    description: Get fills for a specific order
+    schema:
+      type: object
+      required:
+        - order_id
+      properties:
+        order_id:
+          type: number
+          description: Order ID to get fills for
+
+  get_contracts:
+    name: get_contracts
+    description: Get available contracts
+    schema:
+      type: object
+      properties: {}
+
+  get_market_data:
+    name: get_market_data
+    description: Get real-time market data for a contract
+    schema:
+      type: object
+      required:
+        - contract_id
+      properties:
+        contract_id:
+          type: number
+          description: Contract ID to get market data for
+
+  get_historical_data:
+    name: get_historical_data
+    description: Get historical price data for a contract
+    schema:
+      type: object
+      required:
+        - contract_id
+        - start_time
+        - end_time
+        - interval
+      properties:
+        contract_id:
+          type: number
+          description: Contract ID to get historical data for
+        start_time:
+          type: string
+          description: Start time in ISO 8601 format
+        end_time:
+          type: string
+          description: End time in ISO 8601 format
+        interval:
+          type: string
+          description: Time interval (1m, 5m, 15m, 1h, 1d)
+
+  set_risk_limits:
+    name: set_risk_limits
+    description: Set risk limits for an account
+    schema:
+      type: object
+      required:
+        - account_id
+        - day_max_loss
+        - max_drawdown
+        - max_position_qty
+        - trailing_stop
+      properties:
+        account_id:
+          type: number
+          description: Account ID to set limits for
+        day_max_loss:
+          type: number
+          description: Maximum daily loss limit
+        max_drawdown:
+          type: number
+          description: Maximum drawdown limit
+        max_position_qty:
+          type: number
+          description: Maximum position quantity
+        trailing_stop:
+          type: number
+          description: Trailing stop percentage
+
+  get_risk_limits:
+    name: get_risk_limits
+    description: Get current risk management limits for an account
+    schema:
+      type: object
+      required:
+        - account_id
+      properties:
+        account_id:
+          type: number
+          description: Account ID to get limits for
+
 # Build configuration
 build:
   command: go build -o mcp-tradovate ./cmd/mcp-tradovate

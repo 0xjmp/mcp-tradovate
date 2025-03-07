@@ -59,22 +59,64 @@ TRADOVATE_CID=your_client_id
 TRADOVATE_SEC=your_client_secret
 ```
 
-## Usage
+## Available Tools
 
-1. Start the MCP server:
-```bash
-./mcp-tradovate
-```
-
-2. The server will listen for MCP requests on standard input and output responses on standard output.
-
-3. Available commands:
+### Authentication
 - `authenticate`: Connect to Tradovate API
-- `getAccounts`: List trading accounts
-- `getPositions`: View current positions
-- `placeOrder`: Submit new orders
-- `setRiskLimits`: Configure risk management settings
-- And more...
+  - No parameters required
+
+### Account Management
+- `get_accounts`: List all trading accounts
+  - No parameters required
+
+- `get_positions`: View current positions
+  - No parameters required
+
+- `get_risk_limits`: Get risk management settings
+  - Required parameters:
+    - `account_id`: (number) Account ID to get limits for
+
+- `set_risk_limits`: Configure risk management settings
+  - Required parameters:
+    - `account_id`: (number) Account ID to set limits for
+    - `day_max_loss`: (number) Maximum daily loss limit
+    - `max_drawdown`: (number) Maximum drawdown limit
+    - `max_position_qty`: (number) Maximum position quantity
+    - `trailing_stop`: (number) Trailing stop percentage
+
+### Trading Operations
+- `place_order`: Submit a new order
+  - Required parameters:
+    - `account_id`: (number) Account ID to place the order for
+    - `contract_id`: (number) Contract ID to trade
+    - `order_type`: (string) Type of order (Market, Limit, etc.)
+    - `quantity`: (number) Number of contracts to trade
+    - `time_in_force`: (string) Time in force (Day, GTC, IOC, etc.)
+  - Optional parameters:
+    - `price`: (number) Order price (required for Limit orders)
+
+- `cancel_order`: Cancel an existing order
+  - Required parameters:
+    - `order_id`: (number) Order ID to cancel
+
+- `get_fills`: Get fills for a specific order
+  - Required parameters:
+    - `order_id`: (number) Order ID to get fills for
+
+### Market Data
+- `get_contracts`: List available contracts
+  - No parameters required
+
+- `get_market_data`: Get real-time market data
+  - Required parameters:
+    - `contract_id`: (number) Contract ID to get market data for
+
+- `get_historical_data`: Get historical price data
+  - Required parameters:
+    - `contract_id`: (number) Contract ID to get data for
+    - `start_time`: (string) Start time in ISO 8601 format
+    - `end_time`: (string) End time in ISO 8601 format
+    - `interval`: (string) Time interval (1m, 5m, 15m, 1h, 1d)
 
 ## Development
 
