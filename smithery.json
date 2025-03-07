@@ -1,0 +1,62 @@
+{
+  "name": "tradovate-mcp",
+  "version": "1.0.0",
+  "description": "Tradovate API integration for MCP",
+  "author": "Jake Peterson",
+  "license": "MIT",
+  "repository": "https://github.com/0jxmp/tradovate-mcp",
+  "type": "mcp-plugin",
+  "main": "cmd/tradovate-mcp/main.go",
+  "build": {
+    "command": "go build -o tradovate-mcp ./cmd/tradovate-mcp"
+  },
+  "config": {
+    "env": {
+      "TRADOVATE_USERNAME": {
+        "type": "string",
+        "description": "Tradovate username",
+        "required": true
+      },
+      "TRADOVATE_PASSWORD": {
+        "type": "string",
+        "description": "Tradovate password",
+        "required": true,
+        "secret": true
+      },
+      "TRADOVATE_APP_ID": {
+        "type": "string",
+        "description": "Tradovate Application ID",
+        "required": true
+      },
+      "TRADOVATE_APP_VERSION": {
+        "type": "string",
+        "description": "Tradovate Application Version",
+        "required": true,
+        "default": "1.0"
+      },
+      "TRADOVATE_CID": {
+        "type": "string",
+        "description": "Tradovate Client ID",
+        "required": true
+      },
+      "TRADOVATE_SEC": {
+        "type": "string",
+        "description": "Tradovate Client Secret",
+        "required": true,
+        "secret": true
+      },
+      "PORT": {
+        "type": "string",
+        "description": "Port to run the MCP server on",
+        "default": "8080"
+      }
+    }
+  },
+  "tags": [
+    "trading",
+    "finance",
+    "api",
+    "tradovate",
+    "mcp"
+  ]
+} 

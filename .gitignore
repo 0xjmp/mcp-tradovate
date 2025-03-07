@@ -1,0 +1,35 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Build directory
+/bin/
+/dist/
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and credentials
+.env
+*.env
+.env.*
+
+# Compiled plugin
+tradovate-mcp
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Plugin specific
+claude-plugin.json
+cursor-extension.json 
