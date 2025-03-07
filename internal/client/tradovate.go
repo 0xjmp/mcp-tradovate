@@ -11,98 +11,94 @@ import (
 	"github.com/0jxmp/tradovate-mcp/internal/models"
 )
 
-const baseURL = "https://live.tradovate.com/v1"
+const (
+	baseURL = "https://live.tradovate.com/v1"
+)
 
-// tradovateClient implements the TradovateClient interface
-type tradovateClient struct {
+// TradovateClient handles API communication with Tradovate
+type TradovateClient struct {
+	httpClient  *http.Client
 	accessToken string
-	client      *http.Client
 }
 
-// NewTradovateClient creates a new instance of TradovateClient
-func NewTradovateClient() TradovateClient {
-	return &tradovateClient{
-		client: &http.Client{},
+// AuthRequest represents the authentication request body
+type AuthRequest struct {
+	Name         string `json:"name"`
+	Password     string `json:"password"`
+	AppID        string `json:"appId"`
+	AppVersion   string `json:"appVersion"`
+	ClientID     string `json:"cid"`
+	ClientSecret string `json:"sec"`
+}
+
+// AuthResponse represents the authentication response
+type AuthResponse struct {
+	AccessToken    string `json:"accessToken"`
+	MdAccessToken  string `json:"mdAccessToken"`
+	ExpirationTime string `json:"expirationTime"`
+	UserID         int    `json:"userId"`
+	Name           string `json:"name"`
+	ErrorText      string `json:"errorText,omitempty"`
+}
+
+// NewTradovateClient creates a new Tradovate client
+func NewTradovateClient() *TradovateClient {
+	return &TradovateClient{
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
-// NewTradovateClientWithEnvCredentials creates a new client and automatically authenticates using environment variables
-func NewTradovateClientWithEnvCredentials() (TradovateClient, error) {
-	client := &tradovateClient{
-		client: &http.Client{},
+// Authenticate performs the authentication with Tradovate
+func (c *TradovateClient) Authenticate() (*AuthResponse, error) {
+	authReq := AuthRequest{
+		Name:         os.Getenv("TRADOVATE_USERNAME"),
+		Password:     os.Getenv("TRADOVATE_PASSWORD"),
+		AppID:        os.Getenv("TRADOVATE_APP_ID"),
+		AppVersion:   os.Getenv("TRADOVATE_APP_VERSION"),
+		ClientID:     os.Getenv("TRADOVATE_CID"),
+		ClientSecret: os.Getenv("TRADOVATE_SEC"),
 	}
 
-	// Get credentials from environment variables
-	creds := models.Credentials{
-		Name:       os.Getenv("TRADOVATE_USERNAME"),
-		Password:   os.Getenv("TRADOVATE_PASSWORD"),
-		AppID:      os.Getenv("TRADOVATE_APP_ID"),
-		AppVersion: os.Getenv("TRADOVATE_APP_VERSION"),
-		CID:        os.Getenv("TRADOVATE_CID"),
-		SEC:        os.Getenv("TRADOVATE_SEC"),
-	}
-
-	// Validate required credentials
-	if creds.Name == "" || creds.Password == "" || creds.AppID == "" ||
-		creds.AppVersion == "" || creds.CID == "" || creds.SEC == "" {
-		return nil, fmt.Errorf("missing required environment variables for authentication")
-	}
-
-	// Authenticate
-	_, err := client.Authenticate(creds)
+	jsonData, err := json.Marshal(authReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to authenticate with environment credentials: %w", err)
+		return nil, fmt.Errorf("failed to marshal auth request: %v", err)
 	}
 
-	return client, nil
-}
-
-func (c *tradovateClient) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
-	var bodyReader *bytes.Buffer
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling request body: %w", err)
-		}
-		bodyReader = bytes.NewBuffer(jsonData)
-	}
-
-	req, err := http.NewRequest(method, baseURL+endpoint, bodyReader)
+	req, err := http.NewRequest("POST", baseURL+"/auth/accessTokenRequest", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if c.accessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.accessToken)
-	}
 
-	return c.client.Do(req)
-}
-
-// Authentication
-func (c *tradovateClient) Authenticate(creds models.Credentials) (*models.AccessToken, error) {
-	resp, err := c.doRequest("POST", "/auth/accessTokenRequest", creds)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("authentication failed with status: %d", resp.StatusCode)
+	var authResp AuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
 
-	var token models.AccessToken
-	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
-		return nil, fmt.Errorf("error decoding response: %w", err)
+	if authResp.ErrorText != "" {
+		return nil, fmt.Errorf("authentication failed: %s", authResp.ErrorText)
 	}
 
-	c.accessToken = token.AccessToken
-	return &token, nil
+	c.accessToken = authResp.AccessToken
+	return &authResp, nil
+}
+
+// GetAccessToken returns the current access token
+func (c *TradovateClient) GetAccessToken() string {
+	return c.accessToken
 }
 
 // Account Operations
-func (c *tradovateClient) GetAccounts() ([]models.Account, error) {
+func (c *TradovateClient) GetAccounts() ([]models.Account, error) {
 	resp, err := c.doRequest("GET", "/account/list", nil)
 	if err != nil {
 		return nil, err
@@ -117,7 +113,7 @@ func (c *tradovateClient) GetAccounts() ([]models.Account, error) {
 	return accounts, nil
 }
 
-func (c *tradovateClient) GetRiskLimits(accountID int) (*models.RiskLimit, error) {
+func (c *TradovateClient) GetRiskLimits(accountID int) (*models.RiskLimit, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/account/riskLimits/%d", accountID), nil)
 	if err != nil {
 		return nil, err
@@ -132,7 +128,7 @@ func (c *tradovateClient) GetRiskLimits(accountID int) (*models.RiskLimit, error
 	return &limits, nil
 }
 
-func (c *tradovateClient) SetRiskLimits(limits models.RiskLimit) error {
+func (c *TradovateClient) SetRiskLimits(limits models.RiskLimit) error {
 	resp, err := c.doRequest("POST", "/account/setRiskLimits", limits)
 	if err != nil {
 		return err
@@ -147,7 +143,7 @@ func (c *tradovateClient) SetRiskLimits(limits models.RiskLimit) error {
 }
 
 // Trading Operations
-func (c *tradovateClient) PlaceOrder(order models.Order) (*models.Order, error) {
+func (c *TradovateClient) PlaceOrder(order models.Order) (*models.Order, error) {
 	resp, err := c.doRequest("POST", "/order/placeOrder", order)
 	if err != nil {
 		return nil, err
@@ -162,7 +158,7 @@ func (c *tradovateClient) PlaceOrder(order models.Order) (*models.Order, error) 
 	return &placedOrder, nil
 }
 
-func (c *tradovateClient) CancelOrder(orderID int) error {
+func (c *TradovateClient) CancelOrder(orderID int) error {
 	resp, err := c.doRequest("DELETE", fmt.Sprintf("/order/cancel/%d", orderID), nil)
 	if err != nil {
 		return err
@@ -176,7 +172,7 @@ func (c *tradovateClient) CancelOrder(orderID int) error {
 	return nil
 }
 
-func (c *tradovateClient) GetFills(orderID int) ([]models.Fill, error) {
+func (c *TradovateClient) GetFills(orderID int) ([]models.Fill, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/fill/list/%d", orderID), nil)
 	if err != nil {
 		return nil, err
@@ -191,7 +187,7 @@ func (c *tradovateClient) GetFills(orderID int) ([]models.Fill, error) {
 	return fills, nil
 }
 
-func (c *tradovateClient) GetPositions() ([]models.Position, error) {
+func (c *TradovateClient) GetPositions() ([]models.Position, error) {
 	resp, err := c.doRequest("GET", "/position/list", nil)
 	if err != nil {
 		return nil, err
@@ -207,7 +203,7 @@ func (c *tradovateClient) GetPositions() ([]models.Position, error) {
 }
 
 // Market Data Operations
-func (c *tradovateClient) GetContracts() ([]models.Contract, error) {
+func (c *TradovateClient) GetContracts() ([]models.Contract, error) {
 	resp, err := c.doRequest("GET", "/contract/list", nil)
 	if err != nil {
 		return nil, err
@@ -222,7 +218,7 @@ func (c *tradovateClient) GetContracts() ([]models.Contract, error) {
 	return contracts, nil
 }
 
-func (c *tradovateClient) GetMarketData(contractID int) (*models.MarketData, error) {
+func (c *TradovateClient) GetMarketData(contractID int) (*models.MarketData, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/md/getQuote/%d", contractID), nil)
 	if err != nil {
 		return nil, err
@@ -237,7 +233,7 @@ func (c *tradovateClient) GetMarketData(contractID int) (*models.MarketData, err
 	return &marketData, nil
 }
 
-func (c *tradovateClient) GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error) {
+func (c *TradovateClient) GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error) {
 	params := map[string]interface{}{
 		"contractId": contractID,
 		"startTime":  startTime.Unix(),
@@ -257,4 +253,27 @@ func (c *tradovateClient) GetHistoricalData(contractID int, startTime, endTime t
 	}
 
 	return data, nil
+}
+
+func (c *TradovateClient) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
+	var bodyReader *bytes.Buffer
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling request body: %w", err)
+		}
+		bodyReader = bytes.NewBuffer(jsonData)
+	}
+
+	req, err := http.NewRequest(method, baseURL+endpoint, bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	}
+
+	return c.httpClient.Do(req)
 }

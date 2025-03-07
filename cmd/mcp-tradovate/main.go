@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/0xjmp/mcp-tradovate/internal/client"
 )
 
 // Request represents an incoming MCP request
@@ -28,6 +30,12 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+var tradovateClient *client.TradovateClient
+
+func init() {
+	tradovateClient = client.NewTradovateClient()
+}
+
 func main() {
 	// Initialize scanner for STDIN
 	scanner := bufio.NewScanner(os.Stdin)
@@ -48,10 +56,7 @@ func main() {
 		case "ping":
 			sendResponse(req.ID, "pong")
 		case "authenticate":
-			// TODO: Implement Tradovate authentication
-			sendResponse(req.ID, map[string]string{
-				"status": "authenticated",
-			})
+			handleAuthenticate(req.ID)
 		default:
 			sendError(req.ID, 404, fmt.Sprintf("Unknown method: %s", req.Method))
 		}
@@ -60,6 +65,23 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error reading standard input: %v", err)
 	}
+}
+
+func handleAuthenticate(reqID string) {
+	authResp, err := tradovateClient.Authenticate()
+	if err != nil {
+		sendError(reqID, 401, fmt.Sprintf("Authentication failed: %v", err))
+		return
+	}
+
+	sendResponse(reqID, map[string]interface{}{
+		"status":         "authenticated",
+		"token":          authResp.AccessToken,
+		"mdToken":        authResp.MdAccessToken,
+		"userId":         authResp.UserID,
+		"name":           authResp.Name,
+		"expirationTime": authResp.ExpirationTime,
+	})
 }
 
 func sendResponse(id string, result interface{}) {
