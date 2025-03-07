@@ -24,7 +24,7 @@
 .env.*
 
 # Compiled plugin
-tradovate-mcp
+mcp-tradovate
 
 # OS specific
 .DS_Store

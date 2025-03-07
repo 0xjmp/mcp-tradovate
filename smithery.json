@@ -1,14 +1,14 @@
 {
-  "name": "tradovate-mcp",
+  "name": "mcp-tradovate",
   "version": "1.0.0",
   "description": "Tradovate API integration for MCP",
   "author": "Jake Peterson",
   "license": "MIT",
-  "repository": "https://github.com/0jxmp/tradovate-mcp",
+  "repository": "https://github.com/0xjmp/mcp-tradovate",
   "type": "mcp-plugin",
-  "main": "cmd/tradovate-mcp/main.go",
+  "main": "cmd/mcp-tradovate/main.go",
   "build": {
-    "command": "go build -o tradovate-mcp ./cmd/tradovate-mcp"
+    "command": "go build -o mcp-tradovate ./cmd/mcp-tradovate"
   },
   "config": {
     "env": {

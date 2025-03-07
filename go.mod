@@ -1,4 +1,4 @@
-module github.com/0jxmp/tradovate-mcp
+module github.com/0xjmp/mcp-tradovate
 
 go 1.21
 
