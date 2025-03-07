@@ -2,7 +2,7 @@
 
 [![smithery](https://smithery.ai/badge.svg)](https://smithery.ai)
 
-An MCP server implementation that provides tools for interacting with the Tradovate trading platform through a standardized interface.
+An MCP server implementation that provides tools for interacting with the Tradovate trading platform.
 
 ## Features
 
@@ -17,7 +17,7 @@ An MCP server implementation that provides tools for interacting with the Tradov
 
 ### tradovate
 
-Facilitates interaction with the Tradovate trading platform through a standardized interface.
+Facilitates interaction with the Tradovate trading platform.
 
 **Methods:**
 
