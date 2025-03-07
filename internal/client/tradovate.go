@@ -4,21 +4,34 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/0jxmp/tradovate-mcp/internal/models"
+	"github.com/0xjmp/mcp-tradovate/internal/models"
 )
 
-const (
-	baseURL = "https://live.tradovate.com/v1"
-)
+// TradovateClientInterface defines the interface for Tradovate client operations
+type TradovateClientInterface interface {
+	Authenticate() (*AuthResponse, error)
+	GetAccounts() ([]models.Account, error)
+	GetRiskLimits(accountID int) (*models.RiskLimit, error)
+	SetRiskLimits(limits models.RiskLimit) error
+	PlaceOrder(order models.Order) (*models.Order, error)
+	CancelOrder(orderID int) error
+	GetFills(orderID int) ([]models.Fill, error)
+	GetPositions() ([]models.Position, error)
+	GetContracts() ([]models.Contract, error)
+	GetMarketData(contractID int) (*models.MarketData, error)
+	GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error)
+}
 
 // TradovateClient handles API communication with Tradovate
 type TradovateClient struct {
 	httpClient  *http.Client
 	accessToken string
+	baseURL     string
 }
 
 // AuthRequest represents the authentication request body
@@ -47,7 +60,13 @@ func NewTradovateClient() *TradovateClient {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		baseURL: "https://live.tradovate.com/v1",
 	}
+}
+
+// SetBaseURL sets the base URL for API requests
+func (c *TradovateClient) SetBaseURL(url string) {
+	c.baseURL = url
 }
 
 // Authenticate performs the authentication with Tradovate
@@ -66,7 +85,7 @@ func (c *TradovateClient) Authenticate() (*AuthResponse, error) {
 		return nil, fmt.Errorf("failed to marshal auth request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", baseURL+"/auth/accessTokenRequest", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", c.baseURL+"/auth/accessTokenRequest", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -256,7 +275,7 @@ func (c *TradovateClient) GetHistoricalData(contractID int, startTime, endTime t
 }
 
 func (c *TradovateClient) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
-	var bodyReader *bytes.Buffer
+	var bodyReader io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
 		if err != nil {
@@ -265,7 +284,7 @@ func (c *TradovateClient) doRequest(method, endpoint string, body interface{}) (
 		bodyReader = bytes.NewBuffer(jsonData)
 	}
 
-	req, err := http.NewRequest(method, baseURL+endpoint, bodyReader)
+	req, err := http.NewRequest(method, c.baseURL+endpoint, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -275,5 +294,21 @@ func (c *TradovateClient) doRequest(method, endpoint string, body interface{}) (
 		req.Header.Set("Authorization", "Bearer "+c.accessToken)
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		var errResp struct {
+			ErrorText string `json:"errorText"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+			return nil, fmt.Errorf("status %d", resp.StatusCode)
+		}
+		resp.Body.Close()
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, errResp.ErrorText)
+	}
+
+	return resp, nil
 }

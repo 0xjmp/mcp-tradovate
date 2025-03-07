@@ -95,14 +95,16 @@ func sendResponse(id string, result interface{}) {
 }
 
 func sendError(id string, code int, message string) {
+	if code == 0 {
+		code = 500 // Default to internal server error for zero code
+	}
 	resp := Response{
-		ID: id,
+		ID:     id,
+		Result: nil,
 		Error: &Error{
 			Code:    code,
 			Message: message,
 		},
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(resp); err != nil {
-		log.Printf("Error encoding error response: %v", err)
-	}
+	json.NewEncoder(os.Stdout).Encode(resp)
 }

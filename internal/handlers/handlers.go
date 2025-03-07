@@ -4,59 +4,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/0jxmp/tradovate-mcp/internal/client"
-	"github.com/0jxmp/tradovate-mcp/internal/models"
+	"github.com/0xjmp/mcp-tradovate/internal/client"
+	"github.com/0xjmp/mcp-tradovate/internal/models"
 )
 
 // Handler represents an MCP tool handler
 type Handler struct {
 	Description string
-	Parameters  map[string]interface{}
-	Handler     func(params map[string]interface{}) (interface{}, error)
+	Parameters  interface{}
+	Handler     interface{}
 }
 
-// NewHandlers creates all MCP tool handlers
-func NewHandlers(client client.TradovateClient) map[string]Handler {
+// NewHandlers creates a new set of MCP tool handlers
+func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
 	return map[string]Handler{
 		"authenticate": {
 			Description: "Authenticate with Tradovate API",
-			Parameters: map[string]interface{}{
-				"name": map[string]string{
-					"type":        "string",
-					"description": "Username",
-				},
-				"password": map[string]string{
-					"type":        "string",
-					"description": "Password",
-				},
-				"appId": map[string]string{
-					"type":        "string",
-					"description": "Application ID",
-				},
-				"appVersion": map[string]string{
-					"type":        "string",
-					"description": "Application Version",
-				},
-				"cid": map[string]string{
-					"type":        "string",
-					"description": "Client ID",
-				},
-				"sec": map[string]string{
-					"type":        "string",
-					"description": "Client Secret",
-				},
-			},
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				creds := models.Credentials{
-					Name:       params["name"].(string),
-					Password:   params["password"].(string),
-					AppID:      params["appId"].(string),
-					AppVersion: params["appVersion"].(string),
-					CID:        params["cid"].(string),
-					SEC:        params["sec"].(string),
-				}
-				return client.Authenticate(creds)
-			},
+			Parameters:  nil,
+			Handler:     handleAuthenticate(client),
 		},
 		"getAccounts": {
 			Description: "Get all accounts for the authenticated user",
@@ -100,17 +65,7 @@ func NewHandlers(client client.TradovateClient) map[string]Handler {
 					"description": "Time in force (Day, GTC, IOC, etc.)",
 				},
 			},
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				order := models.Order{
-					AccountID:   int(params["accountId"].(float64)),
-					ContractID:  int(params["contractId"].(float64)),
-					OrderType:   params["orderType"].(string),
-					Price:       params["price"].(float64),
-					Quantity:    int(params["quantity"].(float64)),
-					TimeInForce: params["timeInForce"].(string),
-				}
-				return client.PlaceOrder(order)
-			},
+			Handler: handlePlaceOrder(client),
 		},
 		"cancelOrder": {
 			Description: "Cancel an existing order",
@@ -202,44 +157,30 @@ func NewHandlers(client client.TradovateClient) map[string]Handler {
 			},
 		},
 		"setRiskLimits": {
-			Description: "Set risk management limits for an account",
+			Description: "Set risk limits for an account",
 			Parameters: map[string]interface{}{
 				"accountId": map[string]string{
 					"type":        "integer",
-					"description": "Account ID to set limits for",
+					"description": "Account ID",
 				},
-				"maxPositions": map[string]string{
+				"dayMaxLoss": map[string]string{
+					"type":        "number",
+					"description": "Maximum daily loss limit",
+				},
+				"maxDrawdown": map[string]string{
+					"type":        "number",
+					"description": "Maximum drawdown limit",
+				},
+				"maxPositionQty": map[string]string{
 					"type":        "integer",
-					"description": "Maximum number of positions allowed",
+					"description": "Maximum position quantity",
 				},
-				"maxLoss": map[string]string{
+				"trailingStop": map[string]string{
 					"type":        "number",
-					"description": "Maximum total loss allowed",
-				},
-				"dailyMaxLoss": map[string]string{
-					"type":        "number",
-					"description": "Maximum daily loss allowed",
-				},
-				"marginPercent": map[string]string{
-					"type":        "number",
-					"description": "Required margin percentage",
+					"description": "Trailing stop percentage",
 				},
 			},
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				limits := models.RiskLimit{
-					AccountID:     int(params["accountId"].(float64)),
-					MaxPositions:  int(params["maxPositions"].(float64)),
-					MaxLoss:       params["maxLoss"].(float64),
-					DailyMaxLoss:  params["dailyMaxLoss"].(float64),
-					MarginPercent: params["marginPercent"].(float64),
-				}
-
-				err := client.SetRiskLimits(limits)
-				if err != nil {
-					return nil, err
-				}
-				return map[string]bool{"success": true}, nil
-			},
+			Handler: handleSetRiskLimits(client),
 		},
 		"getRiskLimits": {
 			Description: "Get current risk management limits for an account",
@@ -254,5 +195,108 @@ func NewHandlers(client client.TradovateClient) map[string]Handler {
 				return client.GetRiskLimits(accountID)
 			},
 		},
+	}
+}
+
+func handleAuthenticate(client client.TradovateClientInterface) interface{} {
+	return func() (interface{}, error) {
+		return client.Authenticate()
+	}
+}
+
+func handlePlaceOrder(client client.TradovateClientInterface) interface{} {
+	return func(params map[string]interface{}) (interface{}, error) {
+		// Validate required fields
+		requiredFields := []string{"accountId", "contractId", "orderType", "quantity", "timeInForce"}
+		for _, field := range requiredFields {
+			if _, ok := params[field]; !ok {
+				return nil, fmt.Errorf("missing required field: %s", field)
+			}
+		}
+
+		// Type assertions with validation
+		accountID, ok := params["accountId"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for accountId")
+		}
+
+		contractID, ok := params["contractId"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for contractId")
+		}
+
+		orderType, ok := params["orderType"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for orderType")
+		}
+
+		quantity, ok := params["quantity"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for quantity")
+		}
+
+		timeInForce, ok := params["timeInForce"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for timeInForce")
+		}
+
+		// Price is optional for market orders
+		var price float64
+		if orderType == "Limit" {
+			priceVal, ok := params["price"].(float64)
+			if !ok {
+				return nil, fmt.Errorf("price is required for Limit orders")
+			}
+			price = priceVal
+		}
+
+		order := models.Order{
+			AccountID:   int(accountID),
+			ContractID:  int(contractID),
+			OrderType:   orderType,
+			Price:       price,
+			Quantity:    int(quantity),
+			TimeInForce: timeInForce,
+		}
+
+		return client.PlaceOrder(order)
+	}
+}
+
+func handleSetRiskLimits(client client.TradovateClientInterface) interface{} {
+	return func(params map[string]interface{}) (interface{}, error) {
+		accountID, ok := params["accountId"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("missing or invalid accountId")
+		}
+
+		dayMaxLoss, ok := params["dayMaxLoss"].(float64)
+		if !ok || dayMaxLoss < 0 {
+			return nil, fmt.Errorf("missing or invalid dayMaxLoss")
+		}
+
+		maxDrawdown, ok := params["maxDrawdown"].(float64)
+		if !ok || maxDrawdown < 0 {
+			return nil, fmt.Errorf("missing or invalid maxDrawdown")
+		}
+
+		maxPositionQty, ok := params["maxPositionQty"].(float64)
+		if !ok || maxPositionQty < 0 {
+			return nil, fmt.Errorf("missing or invalid maxPositionQty")
+		}
+
+		trailingStop, ok := params["trailingStop"].(float64)
+		if !ok || trailingStop < 0 {
+			return nil, fmt.Errorf("missing or invalid trailingStop")
+		}
+
+		limits := models.RiskLimit{
+			AccountID:      int(accountID),
+			DayMaxLoss:     dayMaxLoss,
+			MaxDrawdown:    maxDrawdown,
+			MaxPositionQty: int(maxPositionQty),
+			TrailingStop:   trailingStop,
+		}
+		return nil, client.SetRiskLimits(limits)
 	}
 }

@@ -1,109 +1,129 @@
-# Tradovate MCP Server
+# MCP Tradovate Server
 
-[![smithery](https://smithery.ai/badge.svg)](https://smithery.ai)
+![](https://badge.mcpx.dev?type=server 'MCP Server')
+[![smithery badge](https://smithery.ai/badge/@0xjmp/mcp-tradovate)](https://smithery.ai/server/@0xjmp/mcp-tradovate)
+[![Go Report Card](https://goreportcard.com/badge/github.com/0xjmp/mcp-tradovate)](https://goreportcard.com/report/github.com/0xjmp/mcp-tradovate)
+[![codecov](https://codecov.io/gh/0xjmp/mcp-tradovate/branch/main/graph/badge.svg)](https://codecov.io/gh/0xjmp/mcp-tradovate)
+[![Go Reference](https://pkg.go.dev/badge/github.com/0xjmp/mcp-tradovate.svg)](https://pkg.go.dev/github.com/0xjmp/mcp-tradovate)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-An MCP server implementation that provides tools for interacting with the Tradovate trading platform.
+A Model Context Protocol (MCP) server for Tradovate integration in Claude Desktop. This server enables AI assistants to manage Tradovate trading accounts through natural language interactions.
 
 ## Features
 
-* Authentication with Tradovate API
-* Account management and risk controls
-* Real-time market data access
-* Order placement and management
-* Position tracking
-* Historical data retrieval
+- ✅ Complete Tradovate API integration
+- 🔒 Secure authentication handling
+- 📈 Real-time market data access
+- 💼 Account management
+- 📊 Risk management controls
+- 🔄 Order placement and management
+- 📝 Comprehensive test coverage
 
-## Tool
+## Installation
 
-### tradovate
+### Installing via Smithery
+To install the Tradovate MCP server for Claude Desktop automatically via Smithery:
 
-Facilitates interaction with the Tradovate trading platform.
+```bash
+npx -y @smithery/cli install @0xjmp/mcp-tradovate --client claude
+```
 
-**Methods:**
+### Manual Installation
 
-* `authenticate`: Authenticate with Tradovate using provided credentials
-* `getAccounts`: Retrieve trading accounts
-* `getRiskLimits`: Get account risk limits
-* `setRiskLimits`: Update account risk limits
-* `placeOrder`: Place a new trading order
-* `cancelOrder`: Cancel an existing order
-* `getFills`: Get order fill information
-* `getPositions`: Retrieve current positions
-* `getContracts`: Get available trading contracts
-* `getMarketData`: Get real-time market data
-* `getHistoricalData`: Retrieve historical price data
+1. Clone the repository:
+```bash
+git clone https://github.com/0xjmp/mcp-tradovate.git
+cd mcp-tradovate
+```
+
+2. Install dependencies:
+```bash
+go mod download
+```
+
+3. Build the project:
+```bash
+go build ./cmd/mcp-tradovate
+```
 
 ## Configuration
 
-The server requires the following environment variables:
+Create a `.env` file in the project root with your Tradovate credentials:
 
-```yaml
-TRADOVATE_USERNAME: Tradovate account username
-TRADOVATE_PASSWORD: Tradovate account password
-TRADOVATE_APP_ID: Application ID from Tradovate
-TRADOVATE_APP_VERSION: Application version (defaults to "1.0")
-TRADOVATE_CID: Client ID from Tradovate
-TRADOVATE_SEC: Client Secret from Tradovate
+```env
+TRADOVATE_USERNAME=your_username
+TRADOVATE_PASSWORD=your_password
+TRADOVATE_APP_ID=your_app_id
+TRADOVATE_APP_VERSION=your_app_version
+TRADOVATE_CID=your_client_id
+TRADOVATE_SEC=your_client_secret
 ```
 
-### Usage with Smithery
+## Usage
 
-Add this to your `smithery.yaml`:
-
-```yaml
-startCommand:
-  type: stdio
-  configSchema:
-    type: object
-    required:
-      - TRADOVATE_USERNAME
-      - TRADOVATE_PASSWORD
-      - TRADOVATE_APP_ID
-      - TRADOVATE_CID
-      - TRADOVATE_SEC
-    properties:
-      TRADOVATE_USERNAME:
-        type: string
-        description: Tradovate username
-      TRADOVATE_PASSWORD:
-        type: string
-        description: Tradovate password
-        secret: true
-      TRADOVATE_APP_ID:
-        type: string
-        description: Tradovate Application ID
-      TRADOVATE_APP_VERSION:
-        type: string
-        description: Tradovate Application Version
-        default: "1.0"
-      TRADOVATE_CID:
-        type: string
-        description: Tradovate Client ID
-      TRADOVATE_SEC:
-        type: string
-        description: Tradovate Client Secret
-        secret: true
-```
-
-## Building
-
-Docker:
+1. Start the MCP server:
 ```bash
-docker build -t mcp/tradovate .
+./mcp-tradovate
 ```
 
-Local:
+2. The server will listen for MCP requests on standard input and output responses on standard output.
+
+3. Available commands:
+- `authenticate`: Connect to Tradovate API
+- `getAccounts`: List trading accounts
+- `getPositions`: View current positions
+- `placeOrder`: Submit new orders
+- `setRiskLimits`: Configure risk management settings
+- And more...
+
+## Development
+
+### Running Tests
+
+Run all tests with coverage:
 ```bash
-go build -o mcp-tradovate ./cmd/mcp-tradovate
+go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 ```
 
-## Testing
+### Code Style
 
-Run the test suite:
+Follow Go best practices and conventions:
 ```bash
-go test ./...
+go fmt ./...
+go vet ./...
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Failures**
+   - Verify your Tradovate credentials in the `.env` file
+   - Ensure your API access is enabled in Tradovate
+
+2. **Connection Issues**
+   - Check your internet connection
+   - Verify Tradovate API status
+   - Ensure firewall isn't blocking connections
+
+3. **Rate Limiting**
+   - Implement appropriate delays between requests
+   - Monitor API usage limits
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This MCP server is licensed under the MIT License. See the LICENSE file in the project repository for full license text. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+If you encounter any issues or have questions, please file an issue on the GitHub repository.
+
+## Author
+
+Jake Peterson ([@0xjmp](https://github.com/0xjmp))
+
+If this library helped you, consider donating (send whatever crypto you want): `0xB5BaA3D2056be942a9F61Cc015b83562DA3C15B2` 
