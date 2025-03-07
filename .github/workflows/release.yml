@@ -1,11 +1,8 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: ["Verify and Test"]
+  push:
     branches: [main]
-    types: 
-      - completed
 
 permissions:
   contents: write
@@ -13,7 +10,6 @@ permissions:
 
 jobs:
   tag:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
