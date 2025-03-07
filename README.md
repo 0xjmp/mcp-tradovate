@@ -46,6 +46,11 @@ go mod download
 go build ./cmd/mcp-tradovate
 ```
 
+4. Run:
+```
+./mcp-tradovate
+```
+
 ## Configuration
 
 Create a `.env` file in the project root with your Tradovate credentials:
@@ -167,5 +172,3 @@ If you encounter any issues or have questions, please file an issue on the GitHu
 ## Author
 
 Jake Peterson ([@0xjmp](https://github.com/0xjmp))
-
-If this library helped you, consider donating (send whatever crypto you want): `0xB5BaA3D2056be942a9F61Cc015b83562DA3C15B2` 
