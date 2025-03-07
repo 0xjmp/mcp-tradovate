@@ -16,18 +16,20 @@ type Account struct {
 
 // Order represents a trading order in Tradovate.
 type Order struct {
-	ID           int     `json:"id,omitempty"` // Unique identifier for the order
-	AccountID    int     `json:"accountId"`    // Account that placed the order
-	ContractID   int     `json:"contractId"`   // Contract being traded
-	OrderType    string  `json:"orderType"`    // Type of order (Market, Limit, etc.)
-	Price        float64 `json:"price"`        // Order price (required for Limit orders)
-	Quantity     int     `json:"quantity"`     // Number of contracts
-	TimeInForce  string  `json:"timeInForce"`  // Time in force (Day, GTC, IOC, etc.)
-	Status       string  `json:"status"`       // Current order status
-	FilledQty    int     `json:"filledQty"`    // Number of contracts filled
-	AveragePrice float64 `json:"averagePrice"` // Average fill price
-	CreatedAt    int64   `json:"createdAt"`    // Order creation timestamp
-	UpdatedAt    int64   `json:"updatedAt"`    // Last update timestamp
+	ID           int     `json:"id,omitempty"`        // Unique identifier for the order
+	AccountID    int     `json:"accountId"`           // Account that placed the order
+	ContractID   int     `json:"contractId"`          // Contract being traded
+	OrderType    string  `json:"orderType"`           // Type of order (Market, Limit, etc.)
+	Side         string  `json:"side"`                // Order side (Buy, Sell)
+	Price        float64 `json:"price"`               // Order price (required for Limit orders)
+	StopPrice    float64 `json:"stopPrice,omitempty"` // Stop price for stop orders
+	Quantity     int     `json:"quantity"`            // Number of contracts
+	TimeInForce  string  `json:"timeInForce"`         // Time in force (Day, GTC, IOC, etc.)
+	Status       string  `json:"status"`              // Current order status
+	FilledQty    int     `json:"filledQty"`           // Number of contracts filled
+	AveragePrice float64 `json:"averagePrice"`        // Average fill price
+	CreatedAt    int64   `json:"createdAt"`           // Order creation timestamp
+	UpdatedAt    int64   `json:"updatedAt"`           // Last update timestamp
 }
 
 // Fill represents an order fill in Tradovate.

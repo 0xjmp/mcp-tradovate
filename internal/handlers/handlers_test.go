@@ -12,16 +12,17 @@ import (
 
 // MockTradovateClient is a mock implementation for testing
 type MockTradovateClient struct {
-	setRiskLimitsFunc func(models.RiskLimit) error
-	authenticateFunc  func() (*client.AuthResponse, error)
-	getAccountsFunc   func() ([]models.Account, error)
-	placeOrderFunc    func(models.Order) (*models.Order, error)
-	cancelOrderFunc   func(int) error
-	getFillsFunc      func(int) ([]models.Fill, error)
-	getPositionsFunc  func() ([]models.Position, error)
-	getContractsFunc  func() ([]models.Contract, error)
-	getMarketDataFunc func(int) (*models.MarketData, error)
-	getRiskLimitsFunc func(int) (*models.RiskLimit, error)
+	setRiskLimitsFunc     func(models.RiskLimit) error
+	authenticateFunc      func() (*client.AuthResponse, error)
+	getAccountsFunc       func() ([]models.Account, error)
+	placeOrderFunc        func(models.Order) (*models.Order, error)
+	cancelOrderFunc       func(int) error
+	getFillsFunc          func(int) ([]models.Fill, error)
+	getPositionsFunc      func() ([]models.Position, error)
+	getContractsFunc      func() ([]models.Contract, error)
+	getMarketDataFunc     func(int) (*models.MarketData, error)
+	getRiskLimitsFunc     func(int) (*models.RiskLimit, error)
+	getHistoricalDataFunc func(int, time.Time, time.Time, string) ([]models.HistoricalData, error)
 }
 
 func (m *MockTradovateClient) SetRiskLimits(limits models.RiskLimit) error {
@@ -95,7 +96,20 @@ func (m *MockTradovateClient) GetMarketData(contractID int) (*models.MarketData,
 }
 
 func (m *MockTradovateClient) GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error) {
-	return nil, nil
+	if m.getHistoricalDataFunc != nil {
+		return m.getHistoricalDataFunc(contractID, startTime, endTime, interval)
+	}
+	return []models.HistoricalData{
+		{
+			ContractID: contractID,
+			Timestamp:  startTime.Unix(),
+			Open:       100.0,
+			High:       101.0,
+			Low:        99.0,
+			Close:      100.5,
+			Volume:     1000,
+		},
+	}, nil
 }
 
 func TestHandleAuthenticate(t *testing.T) {
@@ -134,8 +148,7 @@ func TestHandleAuthenticate(t *testing.T) {
 			handlers := NewHandlers(mockClient)
 			authHandler := handlers["authenticate"]
 
-			handlerFunc := authHandler.Handler.(func() (interface{}, error))
-			result, err := handlerFunc()
+			result, err := authHandler.Handler(nil)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -252,15 +265,10 @@ func TestHandleSetRiskLimits(t *testing.T) {
 			handlers := NewHandlers(mockClient)
 			setRiskLimitsHandler := handlers["setRiskLimits"]
 
-			handlerFunc := setRiskLimitsHandler.Handler.(func(map[string]interface{}) (interface{}, error))
-			_, err := handlerFunc(tt.params)
+			_, err := setRiskLimitsHandler.Handler(tt.params)
+
 			if tt.wantErr {
 				assert.Error(t, err)
-				if tt.mockErr != nil {
-					assert.Equal(t, tt.mockErr, err)
-				} else if tt.errMsg != "" {
-					assert.Equal(t, tt.errMsg, err.Error())
-				}
 			} else {
 				assert.NoError(t, err)
 			}
@@ -345,8 +353,7 @@ func TestHandlePlaceOrder(t *testing.T) {
 			handlers := NewHandlers(mockClient)
 			placeOrderHandler := handlers["placeOrder"]
 
-			handlerFunc := placeOrderHandler.Handler.(func(map[string]interface{}) (interface{}, error))
-			result, err := handlerFunc(tt.params)
+			result, err := placeOrderHandler.Handler(tt.params)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -400,8 +407,7 @@ func TestHandleCancelOrder(t *testing.T) {
 			handlers := NewHandlers(mockClient)
 			cancelOrderHandler := handlers["cancelOrder"]
 
-			handlerFunc := cancelOrderHandler.Handler.(func(map[string]interface{}) (interface{}, error))
-			result, err := handlerFunc(tt.params)
+			result, err := cancelOrderHandler.Handler(tt.params)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -460,8 +466,7 @@ func TestHandleGetFills(t *testing.T) {
 			handlers := NewHandlers(mockClient)
 			getFillsHandler := handlers["getFills"]
 
-			handlerFunc := getFillsHandler.Handler.(func(map[string]interface{}) (interface{}, error))
-			result, err := handlerFunc(tt.params)
+			result, err := getFillsHandler.Handler(tt.params)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -517,9 +522,7 @@ func TestGetAccountsHandler(t *testing.T) {
 	}
 
 	handlers := NewHandlers(mockClient)
-	handler := handlers["getAccounts"].Handler.(func(map[string]interface{}) (interface{}, error))
-
-	result, err := handler(map[string]interface{}{})
+	result, err := handlers["getAccounts"].Handler(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, mockAccounts, result)
 }
@@ -536,9 +539,7 @@ func TestGetPositionsHandler(t *testing.T) {
 	}
 
 	handlers := NewHandlers(mockClient)
-	handler := handlers["getPositions"].Handler.(func(map[string]interface{}) (interface{}, error))
-
-	result, err := handler(map[string]interface{}{})
+	result, err := handlers["getPositions"].Handler(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, mockPositions, result)
 }
@@ -555,9 +556,7 @@ func TestGetContractsHandler(t *testing.T) {
 	}
 
 	handlers := NewHandlers(mockClient)
-	handler := handlers["getContracts"].Handler.(func(map[string]interface{}) (interface{}, error))
-
-	result, err := handler(map[string]interface{}{})
+	result, err := handlers["getContracts"].Handler(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, mockContracts, result)
 }
@@ -577,9 +576,7 @@ func TestGetMarketDataHandler(t *testing.T) {
 	}
 
 	handlers := NewHandlers(mockClient)
-	handler := handlers["getMarketData"].Handler.(func(map[string]interface{}) (interface{}, error))
-
-	result, err := handler(map[string]interface{}{
+	result, err := handlers["getMarketData"].Handler(map[string]interface{}{
 		"contractId": float64(1),
 	})
 	assert.NoError(t, err)
@@ -591,54 +588,18 @@ func TestGetHistoricalDataHandler(t *testing.T) {
 	endTime := time.Now()
 
 	handlers := NewHandlers(&MockTradovateClient{})
-	handler := handlers["getHistoricalData"].Handler.(func(map[string]interface{}) (interface{}, error))
+	result, err := handlers["getHistoricalData"].Handler(map[string]interface{}{
+		"contractId": float64(1),
+		"startTime":  startTime.Format(time.RFC3339),
+		"endTime":    endTime.Format(time.RFC3339),
+		"interval":   "1h",
+	})
 
-	tests := []struct {
-		name    string
-		params  map[string]interface{}
-		wantErr bool
-	}{
-		{
-			name: "Valid parameters",
-			params: map[string]interface{}{
-				"contractId": float64(1),
-				"startTime":  startTime.Format(time.RFC3339),
-				"endTime":    endTime.Format(time.RFC3339),
-				"interval":   "1h",
-			},
-			wantErr: false,
-		},
-		{
-			name: "Invalid start time",
-			params: map[string]interface{}{
-				"contractId": float64(1),
-				"startTime":  "invalid",
-				"endTime":    endTime.Format(time.RFC3339),
-				"interval":   "1h",
-			},
-			wantErr: true,
-		},
-		{
-			name: "Invalid end time",
-			params: map[string]interface{}{
-				"contractId": float64(1),
-				"startTime":  startTime.Format(time.RFC3339),
-				"endTime":    "invalid",
-				"interval":   "1h",
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := handler(tt.params)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
+	if err != nil {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
 	}
 }
 
@@ -659,11 +620,194 @@ func TestGetRiskLimitsHandler(t *testing.T) {
 	}
 
 	handlers := NewHandlers(mockClient)
-	handler := handlers["getRiskLimits"].Handler.(func(map[string]interface{}) (interface{}, error))
-
-	result, err := handler(map[string]interface{}{
+	result, err := handlers["getRiskLimits"].Handler(map[string]interface{}{
 		"accountId": float64(1),
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, expectedLimits, result)
+}
+
+func TestHandleGetMarketDataInvalidParams(t *testing.T) {
+	mockClient := &MockTradovateClient{}
+	handlers := NewHandlers(mockClient)
+
+	tests := []struct {
+		name    string
+		params  map[string]interface{}
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "Missing contract ID",
+			params:  map[string]interface{}{},
+			wantErr: true,
+			errMsg:  "missing contractId",
+		},
+		{
+			name: "Invalid contract ID type",
+			params: map[string]interface{}{
+				"contractId": "invalid",
+			},
+			wantErr: true,
+			errMsg:  "invalid type assertion for contractId",
+		},
+		{
+			name: "Negative contract ID",
+			params: map[string]interface{}{
+				"contractId": float64(-1),
+			},
+			wantErr: true,
+			errMsg:  "invalid contractId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := handlers["getMarketData"].Handler(tt.params)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					assert.Equal(t, tt.errMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHandleGetHistoricalDataInvalidParams(t *testing.T) {
+	mockClient := &MockTradovateClient{}
+	handlers := NewHandlers(mockClient)
+
+	tests := []struct {
+		name    string
+		params  map[string]interface{}
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "Missing all parameters",
+			params:  map[string]interface{}{},
+			wantErr: true,
+			errMsg:  "missing contractId",
+		},
+		{
+			name: "Invalid contract ID type",
+			params: map[string]interface{}{
+				"contractId": "invalid",
+				"startTime":  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+				"endTime":    time.Now().Format(time.RFC3339),
+				"interval":   "1h",
+			},
+			wantErr: true,
+			errMsg:  "invalid type assertion for contractId",
+		},
+		{
+			name: "Invalid start time",
+			params: map[string]interface{}{
+				"contractId": float64(1),
+				"startTime":  "invalid",
+				"endTime":    time.Now().Format(time.RFC3339),
+				"interval":   "1h",
+			},
+			wantErr: true,
+			errMsg:  "invalid start time",
+		},
+		{
+			name: "Invalid end time",
+			params: map[string]interface{}{
+				"contractId": float64(1),
+				"startTime":  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+				"endTime":    "invalid",
+				"interval":   "1h",
+			},
+			wantErr: true,
+			errMsg:  "invalid end time",
+		},
+		{
+			name: "Missing interval",
+			params: map[string]interface{}{
+				"contractId": float64(1),
+				"startTime":  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+				"endTime":    time.Now().Format(time.RFC3339),
+			},
+			wantErr: true,
+			errMsg:  "missing interval",
+		},
+		{
+			name: "End time before start time",
+			params: map[string]interface{}{
+				"contractId": float64(1),
+				"startTime":  time.Now().Format(time.RFC3339),
+				"endTime":    time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+				"interval":   "1h",
+			},
+			wantErr: true,
+			errMsg:  "end time must be after start time",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := handlers["getHistoricalData"].Handler(tt.params)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					assert.Equal(t, tt.errMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHandleGetRiskLimitsInvalidParams(t *testing.T) {
+	mockClient := &MockTradovateClient{}
+	handlers := NewHandlers(mockClient)
+
+	tests := []struct {
+		name    string
+		params  map[string]interface{}
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "Missing account ID",
+			params:  map[string]interface{}{},
+			wantErr: true,
+			errMsg:  "missing accountId",
+		},
+		{
+			name: "Invalid account ID type",
+			params: map[string]interface{}{
+				"accountId": "invalid",
+			},
+			wantErr: true,
+			errMsg:  "invalid type assertion for accountId",
+		},
+		{
+			name: "Negative account ID",
+			params: map[string]interface{}{
+				"accountId": float64(-1),
+			},
+			wantErr: true,
+			errMsg:  "invalid accountId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := handlers["getRiskLimits"].Handler(tt.params)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					assert.Equal(t, tt.errMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

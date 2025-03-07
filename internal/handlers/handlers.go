@@ -71,10 +71,7 @@ func NewHandlers(client client.TradovateClientInterface) Handlers {
 		},
 		"getMarketData": {
 			Description: "Get real-time market data for a contract",
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				contractID := int(params["contractId"].(float64))
-				return client.GetMarketData(contractID)
-			},
+			Handler:     handleGetMarketData(client).(func(map[string]interface{}) (interface{}, error)),
 		},
 		"getHistoricalData": {
 			Description: "Get historical price data for a contract",
@@ -86,10 +83,7 @@ func NewHandlers(client client.TradovateClientInterface) Handlers {
 		},
 		"getRiskLimits": {
 			Description: "Get current risk management limits for an account",
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				accountID := int(params["accountId"].(float64))
-				return client.GetRiskLimits(accountID)
-			},
+			Handler:     handleGetRiskLimits(client).(func(map[string]interface{}) (interface{}, error)),
 		},
 	}
 }
@@ -213,6 +207,29 @@ func handleSetRiskLimits(client client.TradovateClientInterface) interface{} {
 	}
 }
 
+// handleGetMarketData processes market data requests.
+// Required parameters:
+// - contractId: (float64) The contract ID to get data for
+func handleGetMarketData(client client.TradovateClientInterface) interface{} {
+	return func(params map[string]interface{}) (interface{}, error) {
+		contractIDFloat, ok := params["contractId"]
+		if !ok {
+			return nil, fmt.Errorf("missing contractId")
+		}
+
+		contractID, ok := contractIDFloat.(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for contractId")
+		}
+
+		if contractID < 0 {
+			return nil, fmt.Errorf("invalid contractId")
+		}
+
+		return client.GetMarketData(int(contractID))
+	}
+}
+
 // handleGetHistoricalData processes historical market data requests.
 // Required parameters:
 // - contractId: (float64) The contract ID to get data for
@@ -221,22 +238,73 @@ func handleSetRiskLimits(client client.TradovateClientInterface) interface{} {
 // - interval: (string) Time interval for data points
 func handleGetHistoricalData(client client.TradovateClientInterface) interface{} {
 	return func(params map[string]interface{}) (interface{}, error) {
-		startTime, err := time.Parse(time.RFC3339, params["startTime"].(string))
-		if err != nil {
-			return nil, fmt.Errorf("invalid start time: %w", err)
+		contractIDFloat, ok := params["contractId"]
+		if !ok {
+			return nil, fmt.Errorf("missing contractId")
 		}
 
-		endTime, err := time.Parse(time.RFC3339, params["endTime"].(string))
-		if err != nil {
-			return nil, fmt.Errorf("invalid end time: %w", err)
+		contractID, ok := contractIDFloat.(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for contractId")
 		}
 
-		return client.GetHistoricalData(
-			int(params["contractId"].(float64)),
-			startTime,
-			endTime,
-			params["interval"].(string),
-		)
+		if contractID < 0 {
+			return nil, fmt.Errorf("invalid contractId")
+		}
+
+		startTimeStr, ok := params["startTime"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing startTime")
+		}
+
+		startTime, err := time.Parse(time.RFC3339, startTimeStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid start time")
+		}
+
+		endTimeStr, ok := params["endTime"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing endTime")
+		}
+
+		endTime, err := time.Parse(time.RFC3339, endTimeStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end time")
+		}
+
+		if endTime.Before(startTime) {
+			return nil, fmt.Errorf("end time must be after start time")
+		}
+
+		interval, ok := params["interval"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing interval")
+		}
+
+		return client.GetHistoricalData(int(contractID), startTime, endTime, interval)
+	}
+}
+
+// handleGetRiskLimits processes risk limit requests.
+// Required parameters:
+// - accountId: (float64) The account ID to get limits for
+func handleGetRiskLimits(client client.TradovateClientInterface) interface{} {
+	return func(params map[string]interface{}) (interface{}, error) {
+		accountIDFloat, ok := params["accountId"]
+		if !ok {
+			return nil, fmt.Errorf("missing accountId")
+		}
+
+		accountID, ok := accountIDFloat.(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid type assertion for accountId")
+		}
+
+		if accountID < 0 {
+			return nil, fmt.Errorf("invalid accountId")
+		}
+
+		return client.GetRiskLimits(int(accountID))
 	}
 }
 

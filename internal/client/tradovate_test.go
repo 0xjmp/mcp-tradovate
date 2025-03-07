@@ -584,3 +584,96 @@ func TestAuthenticateInvalidResponse(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode response")
 }
+
+func TestNetworkTimeoutError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.httpClient.Timeout = 1 * time.Second
+
+	_, err := client.Authenticate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "context deadline exceeded")
+}
+
+func TestInvalidParameterValidation(t *testing.T) {
+	client := NewTradovateClient()
+
+	// Test invalid order
+	order := models.Order{
+		AccountID:  -1,
+		OrderType:  "InvalidType",
+		Quantity:   -10,
+		ContractID: -1,
+	}
+	_, err := client.PlaceOrder(order)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 404")
+
+	// Test invalid risk limits
+	limits := models.RiskLimit{
+		AccountID:      -1,
+		DayMaxLoss:     -1000,
+		MaxDrawdown:    -500,
+		MaxPositionQty: -10,
+		TrailingStop:   -50,
+	}
+	err = client.SetRiskLimits(limits)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 404")
+
+	// Test invalid order ID
+	err = client.CancelOrder(-1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 404")
+
+	// Test invalid contract ID
+	_, err = client.GetMarketData(-1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 404")
+
+	// Test invalid historical data parameters
+	_, err = client.GetHistoricalData(-1, time.Now(), time.Now().Add(-24*time.Hour), "invalid")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 400")
+}
+
+func TestInvalidResponseHandling(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("invalid json"))
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+
+	// Test various endpoints with invalid responses
+	_, err := client.Authenticate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+
+	_, err = client.GetAccounts()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+
+	_, err = client.GetPositions()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+
+	_, err = client.GetContracts()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+
+	_, err = client.GetMarketData(1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+
+	_, err = client.GetHistoricalData(1, time.Now().Add(-24*time.Hour), time.Now(), "1h")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid")
+}
