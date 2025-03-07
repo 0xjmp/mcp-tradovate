@@ -113,25 +113,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/0jxmp/mcp-tradovate
-            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-tradovate
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.release.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.version }}
-            type=semver,pattern={{major}},value=${{ needs.release.outputs.version }}
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Extract version components
+        id: version_parts
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          VERSION_NO_V="${VERSION#v}"
+          MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+          MINOR=$(echo $VERSION_NO_V | cut -d. -f2)
+          echo "full=$VERSION_NO_V" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "major_minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ghcr.io/0jxmp/mcp-tradovate:latest
+            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.full }}
+            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.major_minor }}
+            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.major }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-tradovate:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-tradovate:${{ steps.version_parts.outputs.full }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-tradovate:${{ steps.version_parts.outputs.major_minor }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-tradovate:${{ steps.version_parts.outputs.major }}
           labels: |
             org.opencontainers.image.title=MCP Tradovate
             org.opencontainers.image.description=Tradovate Market Connection Protocol implementation
