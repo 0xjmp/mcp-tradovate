@@ -1,0 +1,79 @@
+name: mcp-tradovate
+version: 1.0.0
+description: Tradovate API integration for MCP
+author: Jake Peterson
+license: MIT
+repository: https://github.com/0xjmp/mcp-tradovate
+type: mcp-plugin
+
+# Go-specific configurations
+language: go
+go_version: "1.21"
+main: cmd/mcp-tradovate/main.go
+
+# Build configuration
+build:
+  command: go build -o mcp-tradovate ./cmd/mcp-tradovate
+  env:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+
+# Test configuration
+test:
+  command: go test ./...
+
+# Environment configuration
+config:
+  env:
+    TRADOVATE_USERNAME:
+      type: string
+      description: Tradovate username
+      required: true
+    
+    TRADOVATE_PASSWORD:
+      type: string
+      description: Tradovate password
+      required: true
+      secret: true
+    
+    TRADOVATE_APP_ID:
+      type: string
+      description: Tradovate Application ID
+      required: true
+    
+    TRADOVATE_APP_VERSION:
+      type: string
+      description: Tradovate Application Version
+      required: true
+      default: "1.0"
+    
+    TRADOVATE_CID:
+      type: string
+      description: Tradovate Client ID
+      required: true
+    
+    TRADOVATE_SEC:
+      type: string
+      description: Tradovate Client Secret
+      required: true
+      secret: true
+    
+    PORT:
+      type: string
+      description: Port to run the MCP server on
+      default: "8080"
+
+# Dependencies
+dependencies:
+  - github.com/gorilla/mux
+  - github.com/joho/godotenv
+
+# Tags for discovery
+tags:
+  - trading
+  - finance
+  - api
+  - tradovate
+  - mcp
+  - golang 
