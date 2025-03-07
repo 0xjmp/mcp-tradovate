@@ -6,10 +6,51 @@ license: MIT
 repository: https://github.com/0xjmp/mcp-tradovate
 type: mcp-plugin
 
-# Go-specific configurations
-language: go
-go_version: "1.21"
-main: cmd/mcp-tradovate/main.go
+# Server configuration
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - TRADOVATE_USERNAME
+      - TRADOVATE_PASSWORD
+      - TRADOVATE_APP_ID
+      - TRADOVATE_CID
+      - TRADOVATE_SEC
+    properties:
+      TRADOVATE_USERNAME:
+        type: string
+        description: Tradovate username
+      TRADOVATE_PASSWORD:
+        type: string
+        description: Tradovate password
+        secret: true
+      TRADOVATE_APP_ID:
+        type: string
+        description: Tradovate Application ID
+      TRADOVATE_APP_VERSION:
+        type: string
+        description: Tradovate Application Version
+        default: "1.0"
+      TRADOVATE_CID:
+        type: string
+        description: Tradovate Client ID
+      TRADOVATE_SEC:
+        type: string
+        description: Tradovate Client Secret
+        secret: true
+      PORT:
+        type: string
+        description: Port to run the MCP server on
+        default: "8080"
+  commandFunction: |
+    function getStartCommand(config) {
+      return {
+        command: "./mcp-tradovate",
+        args: [],
+        env: config
+      };
+    }
 
 # Build configuration
 build:
