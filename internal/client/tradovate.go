@@ -1,3 +1,6 @@
+// Package client provides a Go client for interacting with the Tradovate API.
+// It handles authentication, trading operations, and market data retrieval through
+// a clean, type-safe interface.
 package client
 
 import (
@@ -12,49 +15,67 @@ import (
 	"github.com/0xjmp/mcp-tradovate/internal/models"
 )
 
-// TradovateClientInterface defines the interface for Tradovate client operations
+// TradovateClientInterface defines the interface for Tradovate client operations.
+// This interface allows for easy mocking in tests and provides a clear contract
+// for implementing alternative client implementations.
 type TradovateClientInterface interface {
+	// Authenticate performs the initial authentication with Tradovate and returns the auth response.
 	Authenticate() (*AuthResponse, error)
+	// GetAccounts retrieves all accounts associated with the authenticated user.
 	GetAccounts() ([]models.Account, error)
+	// GetRiskLimits retrieves the risk limits for a specific account.
 	GetRiskLimits(accountID int) (*models.RiskLimit, error)
+	// SetRiskLimits updates the risk limits for a specific account.
 	SetRiskLimits(limits models.RiskLimit) error
+	// PlaceOrder submits a new order to Tradovate.
 	PlaceOrder(order models.Order) (*models.Order, error)
+	// CancelOrder cancels an existing order by its ID.
 	CancelOrder(orderID int) error
+	// GetFills retrieves all fills for a specific order.
 	GetFills(orderID int) ([]models.Fill, error)
+	// GetPositions retrieves all current positions for the authenticated user.
 	GetPositions() ([]models.Position, error)
+	// GetContracts retrieves all available trading contracts.
 	GetContracts() ([]models.Contract, error)
+	// GetMarketData retrieves current market data for a specific contract.
 	GetMarketData(contractID int) (*models.MarketData, error)
+	// GetHistoricalData retrieves historical market data for a specific contract.
 	GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error)
 }
 
-// TradovateClient handles API communication with Tradovate
+// TradovateClient handles API communication with Tradovate.
+// It implements the TradovateClientInterface and manages the HTTP client,
+// authentication state, and base URL configuration.
 type TradovateClient struct {
 	httpClient  *http.Client
 	accessToken string
 	baseURL     string
 }
 
-// AuthRequest represents the authentication request body
+// AuthRequest represents the authentication request body sent to Tradovate.
+// All fields are required for successful authentication.
 type AuthRequest struct {
-	Name         string `json:"name"`
-	Password     string `json:"password"`
-	AppID        string `json:"appId"`
-	AppVersion   string `json:"appVersion"`
-	ClientID     string `json:"cid"`
-	ClientSecret string `json:"sec"`
+	Name         string `json:"name"`       // Username for Tradovate account
+	Password     string `json:"password"`   // Password for Tradovate account
+	AppID        string `json:"appId"`      // Application ID provided by Tradovate
+	AppVersion   string `json:"appVersion"` // Application version string
+	ClientID     string `json:"cid"`        // OAuth client ID
+	ClientSecret string `json:"sec"`        // OAuth client secret
 }
 
-// AuthResponse represents the authentication response
+// AuthResponse represents the authentication response from Tradovate.
+// A successful response includes tokens and user information.
 type AuthResponse struct {
-	AccessToken    string `json:"accessToken"`
-	MdAccessToken  string `json:"mdAccessToken"`
-	ExpirationTime string `json:"expirationTime"`
-	UserID         int    `json:"userId"`
-	Name           string `json:"name"`
-	ErrorText      string `json:"errorText,omitempty"`
+	AccessToken    string `json:"accessToken"`         // JWT token for API access
+	MdAccessToken  string `json:"mdAccessToken"`       // JWT token for market data access
+	ExpirationTime string `json:"expirationTime"`      // Token expiration time in ISO format
+	UserID         int    `json:"userId"`              // Unique identifier for the user
+	Name           string `json:"name"`                // Username of the authenticated user
+	ErrorText      string `json:"errorText,omitempty"` // Error message if authentication fails
 }
 
-// NewTradovateClient creates a new Tradovate client
+// NewTradovateClient creates a new Tradovate client with default configuration.
+// It sets up an HTTP client with a 10-second timeout and uses the live Tradovate API URL.
 func NewTradovateClient() *TradovateClient {
 	return &TradovateClient{
 		httpClient: &http.Client{
@@ -64,12 +85,20 @@ func NewTradovateClient() *TradovateClient {
 	}
 }
 
-// SetBaseURL sets the base URL for API requests
+// SetBaseURL sets the base URL for API requests.
+// This is useful for testing or switching between demo and live environments.
 func (c *TradovateClient) SetBaseURL(url string) {
 	c.baseURL = url
 }
 
-// Authenticate performs the authentication with Tradovate
+// Authenticate performs the authentication with Tradovate using environment variables.
+// Required environment variables:
+// - TRADOVATE_USERNAME: Tradovate account username
+// - TRADOVATE_PASSWORD: Tradovate account password
+// - TRADOVATE_APP_ID: Application ID from Tradovate
+// - TRADOVATE_APP_VERSION: Application version string
+// - TRADOVATE_CID: OAuth client ID
+// - TRADOVATE_SEC: OAuth client secret
 func (c *TradovateClient) Authenticate() (*AuthResponse, error) {
 	authReq := AuthRequest{
 		Name:         os.Getenv("TRADOVATE_USERNAME"),
@@ -111,12 +140,14 @@ func (c *TradovateClient) Authenticate() (*AuthResponse, error) {
 	return &authResp, nil
 }
 
-// GetAccessToken returns the current access token
+// GetAccessToken returns the current access token.
+// This token is used for authenticating subsequent API requests.
 func (c *TradovateClient) GetAccessToken() string {
 	return c.accessToken
 }
 
-// Account Operations
+// GetAccounts retrieves all accounts associated with the authenticated user.
+// Returns a slice of Account objects containing account details and balances.
 func (c *TradovateClient) GetAccounts() ([]models.Account, error) {
 	resp, err := c.doRequest("GET", "/account/list", nil)
 	if err != nil {
@@ -132,6 +163,9 @@ func (c *TradovateClient) GetAccounts() ([]models.Account, error) {
 	return accounts, nil
 }
 
+// GetRiskLimits retrieves the risk limits for a specific account.
+// Parameters:
+// - accountID: The unique identifier of the account
 func (c *TradovateClient) GetRiskLimits(accountID int) (*models.RiskLimit, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/account/riskLimits/%d", accountID), nil)
 	if err != nil {
@@ -147,6 +181,8 @@ func (c *TradovateClient) GetRiskLimits(accountID int) (*models.RiskLimit, error
 	return &limits, nil
 }
 
+// SetRiskLimits updates the risk limits for a specific account.
+// The limits parameter must include all required risk limit fields.
 func (c *TradovateClient) SetRiskLimits(limits models.RiskLimit) error {
 	resp, err := c.doRequest("POST", "/account/setRiskLimits", limits)
 	if err != nil {
@@ -161,7 +197,9 @@ func (c *TradovateClient) SetRiskLimits(limits models.RiskLimit) error {
 	return nil
 }
 
-// Trading Operations
+// PlaceOrder submits a new order to Tradovate.
+// The order parameter must include all required order fields such as
+// account ID, contract ID, order type, quantity, and time in force.
 func (c *TradovateClient) PlaceOrder(order models.Order) (*models.Order, error) {
 	resp, err := c.doRequest("POST", "/order/placeOrder", order)
 	if err != nil {
@@ -177,6 +215,8 @@ func (c *TradovateClient) PlaceOrder(order models.Order) (*models.Order, error) 
 	return &placedOrder, nil
 }
 
+// CancelOrder cancels an existing order by its ID.
+// Returns an error if the order cannot be cancelled or doesn't exist.
 func (c *TradovateClient) CancelOrder(orderID int) error {
 	resp, err := c.doRequest("DELETE", fmt.Sprintf("/order/cancel/%d", orderID), nil)
 	if err != nil {
@@ -191,6 +231,9 @@ func (c *TradovateClient) CancelOrder(orderID int) error {
 	return nil
 }
 
+// GetFills retrieves all fills for a specific order.
+// Parameters:
+// - orderID: The unique identifier of the order
 func (c *TradovateClient) GetFills(orderID int) ([]models.Fill, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/fill/list/%d", orderID), nil)
 	if err != nil {
@@ -206,6 +249,8 @@ func (c *TradovateClient) GetFills(orderID int) ([]models.Fill, error) {
 	return fills, nil
 }
 
+// GetPositions retrieves all current positions for the authenticated user.
+// Returns a slice of Position objects containing position details and P&L information.
 func (c *TradovateClient) GetPositions() ([]models.Position, error) {
 	resp, err := c.doRequest("GET", "/position/list", nil)
 	if err != nil {
@@ -221,7 +266,8 @@ func (c *TradovateClient) GetPositions() ([]models.Position, error) {
 	return positions, nil
 }
 
-// Market Data Operations
+// GetContracts retrieves all available trading contracts.
+// Returns a slice of Contract objects containing contract specifications.
 func (c *TradovateClient) GetContracts() ([]models.Contract, error) {
 	resp, err := c.doRequest("GET", "/contract/list", nil)
 	if err != nil {
@@ -237,6 +283,9 @@ func (c *TradovateClient) GetContracts() ([]models.Contract, error) {
 	return contracts, nil
 }
 
+// GetMarketData retrieves current market data for a specific contract.
+// Parameters:
+// - contractID: The unique identifier of the contract
 func (c *TradovateClient) GetMarketData(contractID int) (*models.MarketData, error) {
 	resp, err := c.doRequest("GET", fmt.Sprintf("/md/getQuote/%d", contractID), nil)
 	if err != nil {
@@ -252,6 +301,12 @@ func (c *TradovateClient) GetMarketData(contractID int) (*models.MarketData, err
 	return &marketData, nil
 }
 
+// GetHistoricalData retrieves historical market data for a specific contract.
+// Parameters:
+// - contractID: The unique identifier of the contract
+// - startTime: The start time for historical data
+// - endTime: The end time for historical data
+// - interval: The time interval for data points (e.g., "1m", "5m", "1h")
 func (c *TradovateClient) GetHistoricalData(contractID int, startTime, endTime time.Time, interval string) ([]models.HistoricalData, error) {
 	params := map[string]interface{}{
 		"contractId": contractID,
@@ -274,6 +329,12 @@ func (c *TradovateClient) GetHistoricalData(contractID int, startTime, endTime t
 	return data, nil
 }
 
+// doRequest performs an HTTP request to the Tradovate API.
+// It handles request creation, authentication, and error responses.
+// Parameters:
+// - method: HTTP method (GET, POST, etc.)
+// - endpoint: API endpoint path
+// - body: Optional request body for POST/PUT requests
 func (c *TradovateClient) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
 	var bodyReader io.Reader
 	if body != nil {

@@ -1,3 +1,6 @@
+// Package main provides the MCP (Market Connection Protocol) server for Tradovate integration.
+// It handles incoming JSON-RPC style requests for trading operations and market data,
+// communicating with the Tradovate API through the internal client package.
 package main
 
 import (

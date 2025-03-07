@@ -1,3 +1,6 @@
+// Package handlers provides request handlers for the MCP (Market Connection Protocol) server.
+// It implements handlers for various trading operations and market data requests,
+// validating input parameters and coordinating with the Tradovate client.
 package handlers
 
 import (
@@ -8,77 +11,46 @@ import (
 	"github.com/0xjmp/mcp-tradovate/internal/models"
 )
 
-// Handler represents an MCP tool handler
+// Handler represents a request handler with its description and implementation.
 type Handler struct {
-	Description string
-	Parameters  interface{}
-	Handler     interface{}
+	Description string                                            // Human-readable description of the handler's purpose
+	Handler     func(map[string]interface{}) (interface{}, error) // Function that processes the request
 }
 
-// NewHandlers creates a new set of MCP tool handlers
-func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
+// Handlers is a map of handler names to their implementations.
+type Handlers map[string]Handler
+
+// NewHandlers creates a new set of handlers using the provided Tradovate client.
+// It initializes all available handlers with their descriptions and implementations.
+func NewHandlers(client client.TradovateClientInterface) Handlers {
 	return map[string]Handler{
 		"authenticate": {
 			Description: "Authenticate with Tradovate API",
-			Parameters:  nil,
-			Handler:     handleAuthenticate(client),
+			Handler: func(params map[string]interface{}) (interface{}, error) {
+				return handleAuthenticate(client)
+			},
 		},
 		"getAccounts": {
 			Description: "Get all accounts for the authenticated user",
-			Parameters:  map[string]interface{}{},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				return client.GetAccounts()
 			},
 		},
 		"getPositions": {
 			Description: "Get current positions",
-			Parameters:  map[string]interface{}{},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				return client.GetPositions()
 			},
 		},
 		"placeOrder": {
 			Description: "Place a new order",
-			Parameters: map[string]interface{}{
-				"accountId": map[string]string{
-					"type":        "integer",
-					"description": "Account ID",
-				},
-				"contractId": map[string]string{
-					"type":        "integer",
-					"description": "Contract ID",
-				},
-				"orderType": map[string]string{
-					"type":        "string",
-					"description": "Order type (Market, Limit, etc.)",
-				},
-				"price": map[string]string{
-					"type":        "number",
-					"description": "Order price (required for Limit orders)",
-				},
-				"quantity": map[string]string{
-					"type":        "integer",
-					"description": "Order quantity",
-				},
-				"timeInForce": map[string]string{
-					"type":        "string",
-					"description": "Time in force (Day, GTC, IOC, etc.)",
-				},
-			},
-			Handler: handlePlaceOrder(client),
+			Handler:     handlePlaceOrder(client).(func(map[string]interface{}) (interface{}, error)),
 		},
 		"cancelOrder": {
 			Description: "Cancel an existing order",
-			Parameters: map[string]interface{}{
-				"orderId": map[string]string{
-					"type":        "integer",
-					"description": "Order ID to cancel",
-				},
-			},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				orderID := int(params["orderId"].(float64))
-				err := client.CancelOrder(orderID)
-				if err != nil {
+				if err := client.CancelOrder(orderID); err != nil {
 					return nil, err
 				}
 				return map[string]bool{"success": true}, nil
@@ -86,12 +58,6 @@ func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
 		},
 		"getFills": {
 			Description: "Get fills for a specific order",
-			Parameters: map[string]interface{}{
-				"orderId": map[string]string{
-					"type":        "integer",
-					"description": "Order ID to get fills for",
-				},
-			},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				orderID := int(params["orderId"].(float64))
 				return client.GetFills(orderID)
@@ -99,19 +65,12 @@ func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
 		},
 		"getContracts": {
 			Description: "Get available contracts",
-			Parameters:  map[string]interface{}{},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				return client.GetContracts()
 			},
 		},
 		"getMarketData": {
 			Description: "Get real-time market data for a contract",
-			Parameters: map[string]interface{}{
-				"contractId": map[string]string{
-					"type":        "integer",
-					"description": "Contract ID to get market data for",
-				},
-			},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				contractID := int(params["contractId"].(float64))
 				return client.GetMarketData(contractID)
@@ -119,77 +78,14 @@ func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
 		},
 		"getHistoricalData": {
 			Description: "Get historical price data for a contract",
-			Parameters: map[string]interface{}{
-				"contractId": map[string]string{
-					"type":        "integer",
-					"description": "Contract ID to get historical data for",
-				},
-				"startTime": map[string]string{
-					"type":        "string",
-					"description": "Start time in ISO 8601 format",
-				},
-				"endTime": map[string]string{
-					"type":        "string",
-					"description": "End time in ISO 8601 format",
-				},
-				"interval": map[string]string{
-					"type":        "string",
-					"description": "Time interval (1m, 5m, 15m, 1h, 1d)",
-				},
-			},
-			Handler: func(params map[string]interface{}) (interface{}, error) {
-				startTime, err := time.Parse(time.RFC3339, params["startTime"].(string))
-				if err != nil {
-					return nil, fmt.Errorf("invalid start time: %w", err)
-				}
-
-				endTime, err := time.Parse(time.RFC3339, params["endTime"].(string))
-				if err != nil {
-					return nil, fmt.Errorf("invalid end time: %w", err)
-				}
-
-				return client.GetHistoricalData(
-					int(params["contractId"].(float64)),
-					startTime,
-					endTime,
-					params["interval"].(string),
-				)
-			},
+			Handler:     handleGetHistoricalData(client).(func(map[string]interface{}) (interface{}, error)),
 		},
 		"setRiskLimits": {
 			Description: "Set risk limits for an account",
-			Parameters: map[string]interface{}{
-				"accountId": map[string]string{
-					"type":        "integer",
-					"description": "Account ID",
-				},
-				"dayMaxLoss": map[string]string{
-					"type":        "number",
-					"description": "Maximum daily loss limit",
-				},
-				"maxDrawdown": map[string]string{
-					"type":        "number",
-					"description": "Maximum drawdown limit",
-				},
-				"maxPositionQty": map[string]string{
-					"type":        "integer",
-					"description": "Maximum position quantity",
-				},
-				"trailingStop": map[string]string{
-					"type":        "number",
-					"description": "Trailing stop percentage",
-				},
-			},
-			Handler: handleSetRiskLimits(client),
+			Handler:     handleSetRiskLimits(client).(func(map[string]interface{}) (interface{}, error)),
 		},
 		"getRiskLimits": {
 			Description: "Get current risk management limits for an account",
-			Parameters: map[string]interface{}{
-				"accountId": map[string]string{
-					"type":        "integer",
-					"description": "Account ID to get limits for",
-				},
-			},
 			Handler: func(params map[string]interface{}) (interface{}, error) {
 				accountID := int(params["accountId"].(float64))
 				return client.GetRiskLimits(accountID)
@@ -198,12 +94,21 @@ func NewHandlers(client client.TradovateClientInterface) map[string]Handler {
 	}
 }
 
-func handleAuthenticate(client client.TradovateClientInterface) interface{} {
-	return func() (interface{}, error) {
-		return client.Authenticate()
-	}
+// handleAuthenticate processes authentication requests.
+// It calls the Tradovate client's Authenticate method and returns the response.
+func handleAuthenticate(client client.TradovateClientInterface) (interface{}, error) {
+	return client.Authenticate()
 }
 
+// handlePlaceOrder processes order placement requests.
+// Required parameters:
+// - accountId: (float64) The account ID to place the order for
+// - contractId: (float64) The contract ID to trade
+// - orderType: (string) The type of order (e.g., "Market", "Limit")
+// - quantity: (float64) The number of contracts to trade
+// - timeInForce: (string) The time in force for the order
+// Optional parameters:
+// - price: (float64) The limit price (required for limit orders)
 func handlePlaceOrder(client client.TradovateClientInterface) interface{} {
 	return func(params map[string]interface{}) (interface{}, error) {
 		// Validate required fields
@@ -263,6 +168,13 @@ func handlePlaceOrder(client client.TradovateClientInterface) interface{} {
 	}
 }
 
+// handleSetRiskLimits processes risk limit update requests.
+// Required parameters:
+// - accountId: (float64) The account ID to set limits for
+// - dayMaxLoss: (float64) Maximum loss allowed per day
+// - maxDrawdown: (float64) Maximum drawdown allowed
+// - maxPositionQty: (float64) Maximum position size allowed
+// - trailingStop: (float64) Trailing stop percentage
 func handleSetRiskLimits(client client.TradovateClientInterface) interface{} {
 	return func(params map[string]interface{}) (interface{}, error) {
 		accountID, ok := params["accountId"].(float64)
@@ -298,5 +210,65 @@ func handleSetRiskLimits(client client.TradovateClientInterface) interface{} {
 			TrailingStop:   trailingStop,
 		}
 		return nil, client.SetRiskLimits(limits)
+	}
+}
+
+// handleGetHistoricalData processes historical market data requests.
+// Required parameters:
+// - contractId: (float64) The contract ID to get data for
+// - startTime: (string) Start time in RFC3339 format
+// - endTime: (string) End time in RFC3339 format
+// - interval: (string) Time interval for data points
+func handleGetHistoricalData(client client.TradovateClientInterface) interface{} {
+	return func(params map[string]interface{}) (interface{}, error) {
+		startTime, err := time.Parse(time.RFC3339, params["startTime"].(string))
+		if err != nil {
+			return nil, fmt.Errorf("invalid start time: %w", err)
+		}
+
+		endTime, err := time.Parse(time.RFC3339, params["endTime"].(string))
+		if err != nil {
+			return nil, fmt.Errorf("invalid end time: %w", err)
+		}
+
+		return client.GetHistoricalData(
+			int(params["contractId"].(float64)),
+			startTime,
+			endTime,
+			params["interval"].(string),
+		)
+	}
+}
+
+// validateRequiredParams checks if all required parameters are present in the request.
+// It returns an error if any required parameter is missing.
+func validateRequiredParams(params map[string]interface{}, required []string) error {
+	for _, field := range required {
+		if _, ok := params[field]; !ok {
+			return fmt.Errorf("missing required field: %s", field)
+		}
+	}
+	return nil
+}
+
+// assertFloat64 attempts to convert an interface{} to float64.
+// It returns an error if the conversion fails.
+func assertFloat64(value interface{}, paramName string) (float64, error) {
+	switch v := value.(type) {
+	case float64:
+		return v, nil
+	default:
+		return 0, fmt.Errorf("invalid type assertion for %s", paramName)
+	}
+}
+
+// assertString attempts to convert an interface{} to string.
+// It returns an error if the conversion fails.
+func assertString(value interface{}, paramName string) (string, error) {
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	default:
+		return "", fmt.Errorf("invalid type assertion for %s", paramName)
 	}
 }
