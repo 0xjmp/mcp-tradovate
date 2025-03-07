@@ -24,15 +24,12 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Copy the binary from builder
+# Copy the binary and config from builder
 COPY --from=builder /app/mcp-tradovate .
-COPY --from=builder /app/smithery.json .
+COPY --from=builder /app/smithery.yaml .
 
 # Install CA certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
 
-# Expose the port specified in smithery.json
-EXPOSE 8080
-
-# Run the binary
+# Run the binary (no need to expose port as we're using STDIO)
 CMD ["./mcp-tradovate"] 
