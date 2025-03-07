@@ -1,0 +1,148 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          check-latest: true
+
+      - name: Run Tests
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.txt
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  release:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get version
+        id: version
+        run: |
+          # Get latest tag or default to v0.0.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Parse version components
+          MAJOR=$(echo $LATEST_TAG | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $LATEST_TAG | cut -d. -f2)
+          PATCH=$(echo $LATEST_TAG | cut -d. -f3)
+          
+          # Check commit message for version bump indicators
+          git log -1 --pretty=%B | grep -q "BREAKING CHANGE" && MAJOR=$((MAJOR + 1)) && MINOR=0 && PATCH=0
+          git log -1 --pretty=%B | grep -q "feat:" && MINOR=$((MINOR + 1)) && PATCH=0
+          git log -1 --pretty=%B | grep -q "fix:" && PATCH=$((PATCH + 1))
+          
+          # If no specific bump, increment patch
+          if [ "$LATEST_TAG" = "v$MAJOR.$MINOR.$PATCH" ]; then
+            PATCH=$((PATCH + 1))
+          fi
+          
+          NEXT_VERSION="v$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Previous version: $LATEST_TAG"
+          echo "New version: $NEXT_VERSION"
+
+      - name: Create Tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## What's Changed
+            ${{ github.event.head_commit.message }}
+            
+            For full changes, see the [commit history](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.version }})
+
+  publish:
+    needs: release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: 0jxmp
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/0jxmp/mcp-tradovate
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=MCP Tradovate
+            org.opencontainers.image.description=Tradovate Market Connection Protocol implementation
+            org.opencontainers.image.source=https://github.com/0jxmp/mcp-tradovate
+            org.opencontainers.image.version=${{ needs.release.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+
+  deploy:
+    needs: [publish, release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Smithery.ai
+        run: |
+          curl -X POST "https://api.smithery.ai/v1/deployments" \
+            -H "Authorization: Bearer ${{ secrets.SMITHERY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "image": "ghcr.io/0jxmp/mcp-tradovate:${{ needs.release.outputs.version }}",
+              "environment": "production",
+              "service": "mcp-tradovate"
+            }' 
