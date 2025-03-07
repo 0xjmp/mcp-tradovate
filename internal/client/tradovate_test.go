@@ -677,3 +677,143 @@ func TestInvalidResponseHandling(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid")
 }
+
+func TestGetAccountsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Internal server error",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	_, err := client.GetAccounts()
+	assert.Error(t, err)
+}
+
+func TestSetRiskLimitsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid risk limits",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	limits := models.RiskLimit{
+		AccountID: 12345,
+	}
+
+	err := client.SetRiskLimits(limits)
+	assert.Error(t, err)
+}
+
+func TestGetRiskLimitsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Risk limits not found",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	_, err := client.GetRiskLimits(12345)
+	assert.Error(t, err)
+}
+
+func TestPlaceOrderError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid order parameters",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	order := models.Order{
+		AccountID: 12345,
+	}
+
+	_, err := client.PlaceOrder(order)
+	assert.Error(t, err)
+}
+
+func TestCancelOrderError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Order not found",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	err := client.CancelOrder(67890)
+	assert.Error(t, err)
+}
+
+func TestGetFillsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Internal server error",
+		})
+	}))
+	defer server.Close()
+
+	client := NewTradovateClient()
+	client.SetBaseURL(server.URL)
+	client.accessToken = "test-token"
+
+	_, err := client.GetFills(67890)
+	assert.Error(t, err)
+}
+
+func TestNetworkErrors(t *testing.T) {
+	client := NewTradovateClient()
+	client.SetBaseURL("http://invalid-url")
+	client.accessToken = "test-token"
+
+	// Test GetAccounts network error
+	_, err := client.GetAccounts()
+	assert.Error(t, err)
+
+	// Test SetRiskLimits network error
+	err = client.SetRiskLimits(models.RiskLimit{AccountID: 12345})
+	assert.Error(t, err)
+
+	// Test GetRiskLimits network error
+	_, err = client.GetRiskLimits(12345)
+	assert.Error(t, err)
+
+	// Test PlaceOrder network error
+	_, err = client.PlaceOrder(models.Order{AccountID: 12345})
+	assert.Error(t, err)
+
+	// Test CancelOrder network error
+	err = client.CancelOrder(67890)
+	assert.Error(t, err)
+
+	// Test GetFills network error
+	_, err = client.GetFills(67890)
+	assert.Error(t, err)
+}

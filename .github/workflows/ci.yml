@@ -124,23 +124,6 @@ jobs:
           echo "major=$MAJOR" >> $GITHUB_OUTPUT
           echo "major_minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
 
-      - name: Build and push GHCR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/0jxmp/mcp-tradovate:latest
-            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.full }}
-            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.major_minor }}
-            ghcr.io/0jxmp/mcp-tradovate:${{ steps.version_parts.outputs.major }}
-          labels: |
-            org.opencontainers.image.title=MCP Tradovate
-            org.opencontainers.image.description=Tradovate Market Connection Protocol implementation
-            org.opencontainers.image.source=https://github.com/0jxmp/mcp-tradovate
-            org.opencontainers.image.version=${{ needs.release.outputs.version }}
-            org.opencontainers.image.licenses=MIT
-
       - name: Build and push Docker Hub
         uses: docker/build-push-action@v5
         with:

@@ -33,7 +33,7 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-var tradovateClient *client.TradovateClient
+var tradovateClient client.TradovateClientInterface
 
 func init() {
 	tradovateClient = client.NewTradovateClient()
@@ -109,5 +109,7 @@ func sendError(id string, code int, message string) {
 			Message: message,
 		},
 	}
-	json.NewEncoder(os.Stdout).Encode(resp)
+	if err := json.NewEncoder(os.Stdout).Encode(resp); err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
 }
